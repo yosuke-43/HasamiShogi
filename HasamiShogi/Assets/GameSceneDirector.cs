@@ -20,6 +20,10 @@ public class GameSceneDirector : MonoBehaviour
 
     // 内部データ
     GameObject[,] tiles, units;
+
+    // 選択したユニット
+    GameObject selectUnit;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -57,13 +61,19 @@ public class GameSceneDirector : MonoBehaviour
                 {
                     pos.y += 1;
                     unit = Instantiate(prefabUnit, pos, Quaternion.identity);
+
+                    unit.GetComponent<UnitController>().SetUnitType(0);
+                    unit.GetComponent<UnitController>().Pos = new Vector2Int(i, j);
                 }
 
-                // 奥川の駒を作成
+                // 奥側の駒を作成
                 if (j == TILE_Y -1)
                 {
                     pos.y += 1;
                     unit = unit = Instantiate(prefabUnit, pos, Quaternion.identity);
+
+                    unit.GetComponent<UnitController>().SetUnitType(1);
+                    unit.GetComponent<UnitController>().Pos = new Vector2Int(i, j);
                 }
 
                 // 内部データセット
@@ -76,6 +86,62 @@ public class GameSceneDirector : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        GameObject tile = null;
+        GameObject unit = null;
+
+        if (Input.GetMouseButtonUp(0))
+        {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+
+            // ユニットにも当たり判定があるので
+            // ヒットした全てのオブジェクト情報を取得する
+            foreach (RaycastHit hit in Physics.RaycastAll(ray))
+            {
+                if(hit.transform.name.Contains("Tile"))
+                {
+                    tile = hit.transform.gameObject;
+                    break;
+                }
+            }
+        }
+
+        // タイルが押されていなかったら何もしない
+        if (tile == null) return;
+
+        // 選んだタイルのポジションから配列の番号に戻す
+        Vector2Int tilepos = new Vector2Int(
+            (int)tile.transform.position.x + TILE_X / 2,
+            (int)tile.transform.position.z + TILE_Y / 2);
         
+        //ユニット
+        unit = units[tilepos.x, tilepos.y];
+
+        // 選択
+        if (unit != null && selectUnit != unit)
+        {
+            // すでに選択状態
+            if(selectUnit != null)
+            {
+                selectUnit.GetComponent<UnitController>().SelectUnit(false);
+            }
+
+            // 選択状態に
+            selectUnit = unit;
+            selectUnit.GetComponent<UnitController>().SelectUnit();
+        }
+        // 誰も乗っていないタイルが押されたら
+        else if(selectUnit != null)
+        {
+            Vector2Int unitpos = selectUnit.GetComponent<UnitController>().Pos;
+            
+            // 新しい場所へ移動
+            selectUnit.GetComponent<UnitController>().PutUnit(tile, tilepos);
+
+            // 配列データ更新
+            units[unitpos.x, unitpos.y] = null;
+            units[tilepos.x, tilepos.y] = selectUnit;
+
+            selectUnit = null;
+        }
     }
 }
